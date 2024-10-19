@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template for Lambda Function (Image Package Type), S3 Bucket, and Trigger on specific S3 events
+
+Parameters:
+  Architecture:
+    Description: Architecture of Lambda function.
+    Type: String
+    AllowedValues:
+      - arm64
+      - x86
+    Default: arm64
+
+  ImageRepository:
+    Description: Target private ECR repository name of the Docker image. Must exists and be in the same region as this stack.
+    Type: String
+    Default: s3pdfconverter
+
+Mappings:
+  ImageTag:
+    EnvType:
+      arm64: arm64-latest
+      x86: x86-latest
+  LambdaArchitecture:
+    EnvType:
+      arm64: arm64
+      x86: x86_64
+
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-LambdaExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaS3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-document-bucket/*
+                  - !Sub arn:aws:s3:::${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-document-bucket
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  MyLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Architectures:
+        - !FindInMap [LambdaArchitecture, EnvType, !Ref 'Architecture']
+      FunctionName: !Sub "${AWS::StackName}-pdfconverter"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      PackageType: Image
+      Code:
+        ImageUri: !Sub
+          - ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageRepository}:${ImageTag}
+          - ImageRepository: !Ref ImageRepository
+            ImageTag: !FindInMap [ImageTag, EnvType, !Ref 'Architecture']
+      MemorySize: 256
+      Timeout: 300
+  
+  MyS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-${AWS::AccountId}-${AWS::Region}-document-bucket"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt MyLambdaFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                - Name: "Suffix"
+                  Value: ".odt"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - ServerSideEncryptionByDefault:
+            SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Delete
+  
+  LambdaInvokePermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      Principal: 's3.amazonaws.com'
+      FunctionName: !GetAtt MyLambdaFunction.Arn
+      SourceArn: !GetAtt MyS3Bucket.Arn
+      SourceAccount: !Sub "${AWS::AccountId}"
+
+Outputs:
+  S3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref MyS3Bucket
+  LambdaFunctionArn:
+    Description: "ARN of the Lambda function"
+    Value: !GetAtt MyLambdaFunction.Arn
+  LambdaExecutionRole:
+    Description: "IAM Role used by the Lambda Function"
+    Value: !GetAtt LambdaExecutionRole.Arn

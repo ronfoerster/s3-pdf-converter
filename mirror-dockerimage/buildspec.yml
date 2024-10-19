@@ -7,9 +7,7 @@ phases:
       - aws ecr create-repository --registry-id $AWS_ACCOUNT_ID --repository-name $IMAGE_REPO_NAME --image-tag-mutability MUTABLE --image-scanning-configuration scanOnPush=false --encryption-configuration encryptionType=AES256 2>/dev/null; exit 0
   build:
     commands:
-      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
-      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-  post_build:
-    commands:
+      - docker pull public.ecr.aws/z3l4u6t3/pdfconverter:${IMAGE_TAG}
+      - docker tag public.ecr.aws/z3l4u6t3/pdfconverter:${IMAGE_TAG} $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
 

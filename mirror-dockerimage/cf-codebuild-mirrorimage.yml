@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: CodeBuild infrastructure to mirror the Docker image from public ECR to your private ECR
+
+Parameters:
+  Architecture:
+    Description: Architecture of the Docker image.
+    Type: String
+    AllowedValues:
+      - arm64
+      - x86
+    Default: arm64
+
+  ImageRepository:
+    Description: Target name of the private ECR repository to store the Docker image. Will be created if it does not exist after starting this CodeBuild project.
+    Type: String
+    Default: s3pdfconverter
+
+Resources:
+  CodeBuildPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${AWS::StackName}:log-stream:*
+          - Action:
+              - codestar-connections:UseConnection
+              - codestar-connections:GetConnection
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:codestar-connections:${AWS::Region}:${AWS::AccountId}:connection/*
+              - !Sub arn:aws:codeconnections:${AWS::Region}:${AWS::AccountId}:connection/*
+          - Action:
+              - codebuild:CreateReportGroup
+              - codebuild:CreateReport
+              - codebuild:UpdateReport
+              - codebuild:BatchPutTestCases
+              - codebuild:BatchPutCodeCoverages
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/*
+          - Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:CompleteLayerUpload
+              - ecr:GetAuthorizationToken
+              - ecr:InitiateLayerUpload
+              - ecr:PutImage
+              - ecr:UploadLayerPart
+              - ecr:CreateRepository
+              - ecr-public:GetAuthorizationToken
+            Effect: Allow
+            Resource: '*'
+          - Action:
+              - sts:GetServiceBearerToken
+            Effect: Allow
+            Resource: '*'
+      PolicyName: !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - CodeBuildPolicy
+      Roles:
+        - !Ref CodeBuildRole
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    DependsOn:
+      - CodeBuildPolicy
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Cache:
+        Location: LOCAL
+        Type: LOCAL
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Type: PLAINTEXT
+            Value: !Ref 'AWS::Region'
+          - Name: AWS_ACCOUNT_ID
+            Type: PLAINTEXT
+            Value: !Ref 'AWS::AccountId'
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value: !Ref ImageRepository
+          - Name: IMAGE_TAG
+            Type: PLAINTEXT
+            Value: !Sub
+              - ${Architecture}-latest
+              - Architecture: !Ref Architecture
+      Name: !Ref AWS::StackName
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: GITHUB
+        Location: https://github.com/ronfoerster/s3-pdf-converter.git
+        GitCloneDepth: 1
+        BuildSpec: mirror-dockerimage/buildspec.yml
+      TimeoutInMinutes: 15
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+      Path: /
+      RoleName: !Join
+        - '-'
+        - - !Ref AWS::StackName
+          - CodeBuild
+          - MirrorImage
