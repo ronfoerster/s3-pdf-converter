@@ -14,6 +14,7 @@ Therefore, you can choose betwenn two ways to get the Docker image into your rep
 * mirror the Docker image from my own [**public** ECR repository](https://gallery.ecr.aws/z3l4u6t3/pdfconverter)
 or
 * you can also [create the Docker image yourself](#build-the-docker-image-on-your-own).
+
 Both are CodeBuild projects you have to run first.
 Then you can deploy the CloudFormation template `cf-s3pdfconverter.yml` which creates the necessary resources in AWS:
 * S3 Bucket
