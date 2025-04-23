@@ -9,10 +9,12 @@ The entire project has been configured in such a minimalistic way that it runs w
 ## CloudFormation Template - Demo
 `Note: Using the templates may incur additional costs in AWS due to the use of the necessary AWS resources.`
 
-Unfortunately Lambda functions supports Docker images only from your **private** ECR and not from public container registries.
-Therefore, you can choose betwenn two ways to get the Docker image into your repository:
-* mirror the Docker image from my own [**public** ECR repository](https://gallery.ecr.aws/z3l4u6t3/pdfconverter)
-or
+![Architecture diagram.](architecturediagram.svg)
+
+Unfortunately Lambda functions supports Docker images **only from your private ECR** and not from public container registries.
+Therefore, you can choose betwenn two ways to get the Docker image into your repository:  
+* mirror the Docker image from my own [**public** ECR repository](https://gallery.ecr.aws/ronfoerster/pdfconverter)  
+or  
 * you can also [create the Docker image yourself](#build-the-docker-image-on-your-own).
 
 Both are CodeBuild projects you have to run first.
@@ -81,8 +83,7 @@ If you already used parameters above when creating the stack, add them here as w
 
 Test the deployment: upload `sample.odt`
 ```
-AWSACCOUNTID=`aws sts get-caller-identity --query "Account" --output text` && AWSREGION=`aws configure list | grep region | awk '{print $2}' && \` 
-aws s3 cp sample.odt s3://$stackname-$AWSACCOUNTID-$AWSREGION-document-bucket/
+AWSACCOUNTID=`aws sts get-caller-identity --query "Account" --output text` && AWSREGION=`aws configure list | grep region | awk '{print $2}'` && aws s3 cp sample.odt s3://$stackname-$AWSACCOUNTID-$AWSREGION-document-bucket/
 ```
 After a short time, the `sample.pdf` should be in the S3 bucket.
 ### Usage
@@ -102,7 +103,7 @@ aws cloudformation delete-stack --stack-name $stackname
 ```
 3. Remove the CodeBuild project
 
-Delete the ECR repository and its images, `--repository-name $stackname` may be different for you, in this demo it is equal to the $stackname
+Delete the ECR repository and its images, `--repository-name $stackname` may be different for you, in this demo the default repository name `s3pdfconverter` is equal to the $stackname
 ```
 aws ecr delete-repository --force --registry-id $AWSACCOUNTID --repository-name $stackname
 ```
