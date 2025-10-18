@@ -90,11 +90,11 @@ class S3PdfConverterPipelineStack(Stack):
                             ],
                         },
                         "build": {
-                            "commands": ["cdk synth --no-staging -c lambdastack=true"]
+                            "commands": ["cdk synth --no-staging -c lambdastack=true -c local=false"]
                         },
                         "post_build": {
                             "commands": [
-                                "cdk deploy --all -c lambdastack=true --outputs-file outputs.json && ./test.sh outputs.json"
+                                "cdk deploy --all -c lambdastack=true -c local=false --outputs-file outputs.json && ./test.sh outputs.json"
                             ]
                         }
                     }
