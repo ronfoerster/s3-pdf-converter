@@ -13,7 +13,7 @@ app = cdk.App()
 
 # decide if you want build the docker image local or remote in aws codebuild
 try:
-     build_local = app.node.get_context("local").lower() in ('True', 'true', '1') or False
+     build_local = app.node.get_context("local").lower() in ('true', '1') or False
 except Exception as e:
     print(f"Error getting 'local' context: {e}. Defaulting to False.")
     build_local = False
@@ -44,30 +44,31 @@ else:
          architecture = "AMD64" # default value
 
 
-    deploy_lambdastack = app.node.get_context("lambdastack").lower() in ('True', 'true', '1') or False
+    deploy_lambdastack = app.node.get_context("lambdastack").lower() in ('true', '1') or False
     if deploy_lambdastack:
             S3PdfConverterLambdaStack(app, "S3PdfConverterLambdaStack", architecture=architecture, env=env)
     
-    # request codeconnection ARN for github from default aws environment values
-    cmd = [
-        "aws", "codeconnections", "list-connections",
-        "--no-paginate", "true",
-        "--provider-type", "GitHub",
-        "--query", "Connections[?ConnectionStatus=='AVAILABLE'] | [0].ConnectionArn",
-        "--output", "text"
-    ]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        code_connection_arn = result.stdout.strip()
-        if code_connection_arn[:8].lower() != "arn:aws:":
-            print("Error: Invalid CodeConnection ARN. Please check your AWS CodeConnections setup.")
-            code_connection_arn = ""
-        else:
-            print(f"Use Codeconnection-ARN {code_connection_arn}")
-        
-        S3PdfConverterPipelineStack(app, "S3PdfConverterStack", architecture=architecture, code_connection_arn=code_connection_arn, env=env)
+    else:
+        # request codeconnection ARN for github from default aws environment values
+        cmd = [
+            "aws", "codeconnections", "list-connections",
+            "--no-paginate",
+            "--provider-type", "GitHub",
+            "--query", "Connections[?ConnectionStatus=='AVAILABLE'] | [0].ConnectionArn",
+            "--output", "text"
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            code_connection_arn = result.stdout.strip()
+            if code_connection_arn[:8].lower() != "arn:aws:":
+                print("Error: Invalid CodeConnection ARN. Please check your AWS CodeConnections setup.")
+                code_connection_arn = ""
+            else:
+                print(f"Use Codeconnection-ARN {code_connection_arn}")
+            
+            S3PdfConverterPipelineStack(app, "S3PdfConverterStack", architecture=architecture, code_connection_arn=code_connection_arn, env=env)
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing aws codeconnections command: {e}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error executing aws codeconnections command: {e}")
 
 app.synth()

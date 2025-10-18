@@ -8,7 +8,6 @@
     ],
     "exclude": [
       "README.md",
-      "documentation.md",
       "cdk*.json",
       "requirements*.txt",
       "source.bat",

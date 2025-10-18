@@ -38,8 +38,7 @@ class S3PdfConverterPipelineStack(Stack):
                     enabled=True,
                     expiration=Duration.days(1),  # Adjust based on your needs (1-90 days)
                     noncurrent_version_expiration=Duration.days(1),
-                    abort_incomplete_multipart_upload_after=Duration.days(1),
-                    expired_object_delete_marker=True
+                    abort_incomplete_multipart_upload_after=Duration.days(1)
                 )
             ]
         )
@@ -124,7 +123,7 @@ class S3PdfConverterPipelineStack(Stack):
                     action_name="GithubSource",
                     output=source_output,
                     owner="ronfoerster",
-                    repo="s3pdfconverter",
+                    repo="s3-pdf-converter",
                     branch="main",
                     connection_arn=code_connection_arn,
                 )

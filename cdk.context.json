@@ -1,5 +1,5 @@
 {
-  "local": "False",
-  "architecture": "ARM64",
+  "local": "True",
+  "architecture": "AMD64",
   "lambdastack": "False"
 }
