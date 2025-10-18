@@ -1,9 +1,9 @@
-
 import boto3
 import os
 import subprocess
 
 s3 = boto3.client('s3')
+sqs = boto3.client('sqs')
 
 def lambda_handler(event, context):
     for record in event['Records']:
@@ -26,3 +26,8 @@ def lambda_handler(event, context):
         if not os.path.isfile(newfile):
             raise Exception("No pdf-file found.")
         s3.upload_file(newfile, bucket, newkey)
+        if os.environ['JOB_SUCCESS_SQS_URL']:
+            sqs.send_message(
+                QueueUrl=os.environ['JOB_SUCCESS_SQS_URL'],
+                MessageBody=f'{key} converted to {newkey}'
+            )
